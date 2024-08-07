@@ -25,22 +25,41 @@ int	ft_atoi(char *str)
 	return (res * sign);
 }
 
-void	send_to_server(int pid, char *str)
+void	sig_decode(int sig, siginfo_t *info, void *context)
 {
-	
+	static char c;
+	static int bit_count;
+
+	(void)context;
+	if (sig == SIGUSR1)
+		c = (1 << bit_count);
+	bit_count++;	
+	if (bit_count == 8)
+	{
+		write(1, &c, 1);
+		c = 0;
+		bit_count = 0;
+	}
+	if(kill(info->si_pid, SIGUSR1) == -1)
+		perror("error confirming submission");
 }
 
-int	main(int argc, char **argv)
+int	main(void)
 {
-	int	pid;
-	char	*str;
+	struct sigaction sa;
 
-	if (argc < 3)
-		printf("too few arguments");
-	if (argc > 3)
-		printf("too many arguments");
-	pid = ft_atoi(argv[1]);
-	str = argv[2];
-	send_to_server(pid, str);
-	return (0);	
+	sa.sa_flags = SA_SIGINFO;
+	sa.sa_sigaction = sig_decode;
+	sigemptyset(&sa.sa_mask);
+
+	if (sigaction(SIGUSR1, &sa, NULL) == -1 || sigaction(SIGUSR2, &sa, NULL) == -1)
+	{
+		printf("setting up signal handler failed\n");
+	}
+	sigaction(SIGUSR1, &sa, NULL);
+	sigaction(SIGUSR2, &sa, NULL);
+	printf("\n\n\n[Server's Process ID]: %d\n\n\n",getpid());
+	while (1)
+		pause();
+	return (0);
 }
